@@ -1,64 +1,45 @@
-export default async function handler(req, res) {
-  const { cpf } = req.query;
-
-  if (!cpf) {
-    return res.status(400).json({
-      ok: false,
-      error: "CPF não informado"
-    });
-  }
-
+export default async function handler(req, res) 
+{
   try {
-    const webhook = process.env.BITRIX_WEBHOOK;
+    // 1️⃣ Número do processo vindo da Unity
+    const { processo } = req.query;
 
-    const response = await fetch(
-      `${webhook}crm.deal.list`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          filter: {
-            UF_CRM_CPF: cpf   // ⚠️ CONFIRMAR NOME DO CAMPO
-          },
-          select: [
-            "ID",
-            "TITLE",
-            "STAGE_ID"
-          ]
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (!data.result || data.result.length === 0) {
-      return res.status(200).json({
-        ok: true,
-        cpf,
-        encontrado: false
+    if (!processo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Número do processo não informado"
       });
     }
 
-    const p = data.result[0];
+    // 2️⃣ LINK DO WEBHOOK DO BITRIX (SUBSTITUI AQUI 👇)
+    const BITRIX_WEBHOOK =
+      "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    res.status(200).json({
+    // 3️⃣ ID DO CAMPO PERSONALIZADO (SUBSTITUI AQUI 👇)
+    // Exemplo: UF_CRM_1712345678
+    const CAMPO_PROCESSO = "UF_CRM_1712398765";
+
+    // 4️⃣ Monta a URL da consulta
+    const url =
+      `${BITRIX_WEBHOOK}/crm.deal.list.json` +
+      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}`;
+
+    // 5️⃣ Chamada ao Bitrix
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // 6️⃣ Retorno para a Unity
+    return res.status(200).json({
       ok: true,
-      cpf,
-      encontrado: true,
-      processo: {
-        id: p.ID,
-        titulo: p.TITLE,
-        status: p.STAGE_ID
-      }
+      total: data.total || 0,
+      result: data.result || []
     });
 
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({
+  } catch (err) {
+    return res.status(500).json({
       ok: false,
-      error: "Erro ao consultar Bitrix"
+      error: "Erro ao consultar o Bitrix",
+      details: err.message
     });
   }
 }
