@@ -1,6 +1,7 @@
+// backend/contato.js
 export default async function handler(req, res) {
   // Habilita CORS
-  res.setHeader("Access-Control-Allow-Origin", "*"); // permite qualquer domínio
+  res.setHeader("Access-Control-Allow-Origin", "*"); 
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -10,74 +11,48 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { processo } = req.query;
+    const { contatoId, email, telefone } = req.query;
 
-    if (!processo) {
+    if (!contatoId && !email && !telefone) {
       return res.status(400).json({
         ok: false,
-        error: "Número do processo não informado"
+        error: "Informe pelo menos um parâmetro: contatoId, email ou telefone"
       });
     }
 
-    const BITRIX_WEBHOOK =
-      "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
+    const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    const CAMPO_PROCESSO = "UF_CRM_1758883069045";
-    const CAMPO_CLIENTE  = "UF_CRM_1758883087045";
-    const CAMPO_COMARCA  = "UF_CRM_1758883106364";
-    const CAMPO_ASSUNTO  = "UF_CRM_1758883116821";
-    const CAMPO_FASE     = "UF_CRM_1758883132316";
-    const CAMPO_ULT_MOV  = "UF_CRM_1758883141020";
-    const CAMPO_DATA_UM  = "UF_CRM_1758883152876";
+    // Monta filtro dinamicamente
+    let filtro = {};
+    if (contatoId) filtro.ID = contatoId;
+    if (email) filtro.EMAIL = email;
+    if (telefone) filtro.PHONE = telefone;
 
-    const url =
-      `${BITRIX_WEBHOOK}/crm.deal.list.json` +
-      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
+    // Converte o filtro em query string
+    const queryString = Object.entries(filtro)
+      .map(([key, value]) => `filter[${key}]=${encodeURIComponent(value)}`)
+      .join("&");
+
+    // Chama a API para listar contatos
+    const url = `${BITRIX_WEBHOOK}/crm.contact.list.json?${queryString}` +
       `&select[]=ID` +
-      `&select[]=TITLE` +
-      `&select[]=STAGE_SEMANTIC_ID` +
-      `&select[]=CLOSED` +
-      `&select[]=${CAMPO_PROCESSO}` +
-      `&select[]=${CAMPO_CLIENTE}` +
-      `&select[]=${CAMPO_COMARCA}` +
-      `&select[]=${CAMPO_ASSUNTO}` +
-      `&select[]=${CAMPO_FASE}` +
-      `&select[]=${CAMPO_ULT_MOV}` +
-      `&select[]=${CAMPO_DATA_UM}` +
-      `&order[DATE_MODIFY]=DESC`;
+      `&select[]=NAME` +
+      `&select[]=LAST_NAME` +
+      `&select[]=PHONE` +
+      `&select[]=EMAIL` +
+      `&select[]=COMMENTS` +
+      `&select[]=UF_CRM_*`; // todos campos personalizados
 
     const response = await fetch(url);
     const data = await response.json();
 
     if (!data.result || data.result.length === 0) {
-      return res.status(200).json({ ok: true, result: null });
+      return res.status(200).json({ ok: true, result: [] });
     }
-
-    // Escolhe o processo mais relevante
-    let deal =
-      data.result.find(d => d.CLOSED === "N") ||
-      data.result[0];
-
-    const status =
-      deal.STAGE_SEMANTIC_ID === "S"
-        ? "Ganhou"
-        : deal.STAGE_SEMANTIC_ID === "F"
-        ? "Perdeu"
-        : "Em andamento";
 
     return res.status(200).json({
       ok: true,
-      result: {
-        processo: deal[CAMPO_PROCESSO] || "",
-        cliente: deal[CAMPO_CLIENTE] || "",
-        status,
-        fechado: deal.CLOSED === "Y",
-        comarca: deal[CAMPO_COMARCA] || "",
-        assunto: deal[CAMPO_ASSUNTO] || "",
-        fase: deal[CAMPO_FASE] || "",
-        ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
-        data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
-      }
+      result: data.result // array de contatos
     });
 
   } catch (err) {
