@@ -7,45 +7,45 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
+    const { processo } = req.query;
+
+    if (!processo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Número do processo não informado"
+      });
+    }
+
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
+    const CAMPO_PROCESSO = "UF_CRM_1758883069045"; // Campo onde está o número do processo
 
-    // 1️⃣ Pega todos os pipelines
-    const urlPipelines = `${BITRIX_WEBHOOK}/crm.deal.pipeline.list.json`;
-    const responsePipelines = await fetch(urlPipelines);
-    const dataPipelines = await responsePipelines.json();
+    // Busca todos os deals que têm o número do processo
+    const urlDeals = `${BITRIX_WEBHOOK}/crm.deal.list.json` +
+      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
+      `&select[]=ID` +
+      `&select[]=TITLE` +
+      `&select[]=STAGE_ID` +
+      `&select[]=STAGE_SEMANTIC_ID`;
 
-    if (!dataPipelines.result) {
-      return res.status(200).json({ ok: true, pipelines: {} });
+    const response = await fetch(urlDeals);
+    const data = await response.json();
+
+    if (!data.result || data.result.length === 0) {
+      return res.status(200).json({ ok: true, result: null });
     }
 
-    const pipelines = dataPipelines.result;
+    // Cria um Set para guardar todos os STAGE_ID únicos encontrados
+    const stageIds = new Set();
 
-    // 2️⃣ Para cada pipeline, pega todas as fases
-    let pipelinesFases = {};
-
-    for (let pipeline of pipelines) {
-      const pipelineId = pipeline.ID;
-      const urlStages = `${BITRIX_WEBHOOK}/crm.deal.stage.list.json?pipeline_id=${pipelineId}`;
-      const responseStages = await fetch(urlStages);
-      const dataStages = await responseStages.json();
-
-      if (dataStages.result) {
-        // Mapeia ID da fase → nome legível
-        let stagesMap = {};
-        dataStages.result.forEach(stage => {
-          stagesMap[stage.ID] = stage.NAME;
-        });
-
-        pipelinesFases[pipelineId] = {
-          name: pipeline.NAME,
-          stages: stagesMap
-        };
-      }
-    }
+    data.result.forEach(deal => {
+      if (deal.STAGE_ID) stageIds.add(deal.STAGE_ID);
+    });
 
     return res.status(200).json({
       ok: true,
-      pipelines: pipelinesFases
+      processo,
+      totalDeals: data.result.length,
+      stagesEncontrados: Array.from(stageIds)
     });
 
   } catch (err) {
