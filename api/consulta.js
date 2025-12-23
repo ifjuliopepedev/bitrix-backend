@@ -1,7 +1,5 @@
-export default async function handler(req, res) 
-{
+export default async function handler(req, res) {
   try {
-    // 1️⃣ Número do processo vindo da Unity
     const { processo } = req.query;
 
     if (!processo) {
@@ -11,28 +9,42 @@ export default async function handler(req, res)
       });
     }
 
-    // 2️⃣ LINK DO WEBHOOK DO BITRIX (SUBSTITUI AQUI 👇)
     const BITRIX_WEBHOOK =
       "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    // 3️⃣ ID DO CAMPO PERSONALIZADO (SUBSTITUI AQUI 👇)
-    // Exemplo: UF_CRM_1712345678
-    const CAMPO_PROCESSO = "UF_CRM_1712398765";
+    const CAMPO_PROCESSO = "UF_CRM_1758883069045";
 
-    // 4️⃣ Monta a URL da consulta
     const url =
       `${BITRIX_WEBHOOK}/crm.deal.list.json` +
-      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}`;
+      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
+      `&select[]=ID` +
+      `&select[]=TITLE` +
+      `&select[]=STAGE_ID` +
+      `&select[]=STAGE_SEMANTIC_ID` +
+      `&select[]=CLOSED` +
+      `&select[]=${CAMPO_PROCESSO}`;
 
-    // 5️⃣ Chamada ao Bitrix
     const response = await fetch(url);
     const data = await response.json();
 
-    // 6️⃣ Retorno para a Unity
+    const deals = (data.result || []).map(deal => {
+      let status = "Em andamento";
+      if (deal.STAGE_SEMANTIC_ID === "S") status = "Ganhou";
+      if (deal.STAGE_SEMANTIC_ID === "F") status = "Perdeu";
+
+      return {
+        id: deal.ID,
+        titulo: deal.TITLE,
+        processo: deal[CAMPO_PROCESSO],
+        status,
+        fechado: deal.CLOSED === "Y"
+      };
+    });
+
     return res.status(200).json({
       ok: true,
-      total: data.total || 0,
-      result: data.result || []
+      total: deals.length,
+      result: deals
     });
 
   } catch (err) {
