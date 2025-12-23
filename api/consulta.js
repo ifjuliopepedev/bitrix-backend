@@ -1,35 +1,51 @@
+async function fetchAllDeals(webhook, campoProcesso) {
+  let start = 0;
+  let all = [];
+
+  while (true) {
+    const url =
+      `${webhook}/crm.deal.list.json` +
+      `?select[]=${campoProcesso}` +
+      `&start=${start}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.result || data.result.length === 0) break;
+
+    all.push(...data.result);
+    start += 50;
+  }
+
+  return all;
+}
+
 export default async function handler(req, res) {
   try {
     const BITRIX_WEBHOOK =
       "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
+    // campo correto do número do processo
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";
 
-    const url =
-      `${BITRIX_WEBHOOK}/crm.deal.list.json` +
-      `?select[]=ID` +
-      `&select[]=TITLE` +
-      `&select[]=${CAMPO_PROCESSO}` +
-      `&order[ID]=DESC` +
-      `&start=0`;
+    const deals = await fetchAllDeals(BITRIX_WEBHOOK, CAMPO_PROCESSO);
 
-    const response = await fetch(url);
-    const data = await response.json();
+    // pega só os números, remove vazios
+    const processos = deals
+      .map(d => d[CAMPO_PROCESSO])
+      .filter(p => p && p.trim() !== "");
 
-    const lista = (data.result || []).map(d => ({
-      id: d.ID,
-      titulo: d.TITLE,
-      processo: d[CAMPO_PROCESSO] || ""
-    }));
+    // remove duplicados
+    const unicos = [...new Set(processos)];
 
-    return res.status(200).json({
+    res.status(200).json({
       ok: true,
-      total: lista.length,
-      result: lista
+      total: unicos.length,
+      processos: unicos
     });
 
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       ok: false,
       error: err.message
     });
