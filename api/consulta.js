@@ -14,8 +14,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const BITRIX_WEBHOOK =
-      "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
+    const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";
     const CAMPO_CLIENTE  = "UF_CRM_1758883087045";
@@ -25,7 +24,6 @@ export default async function handler(req, res) {
     const CAMPO_ULT_MOV  = "UF_CRM_1758883141020";
     const CAMPO_DATA_UM  = "UF_CRM_1758883152876";
 
-    // Mapeamento completo de IDs para nomes legíveis
     const faseMap = {
       "C5:NEW": "Ação protocolada / Aguardando decisão inicial",
       "C5:PREPARATION": "Audiência agendada",
@@ -39,8 +37,8 @@ export default async function handler(req, res) {
       "C5:WON": "Processo arquivado / encerrado"
     };
 
-    const url =
-      `${BITRIX_WEBHOOK}/crm.deal.list.json` +
+    // Consulta os deals pelo processo
+    const url = `${BITRIX_WEBHOOK}/crm.deal.list.json` +
       `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
       `&select[]=ID` +
       `&select[]=TITLE` +
@@ -74,11 +72,23 @@ export default async function handler(req, res) {
 
     const faseLegivel = faseMap[deal.STAGE_ID] || deal.STAGE_ID;
 
+    // Pega o nome do cliente a partir do contato
+    let clienteNome = "";
+    if (deal[CAMPO_CLIENTE]) {
+      const contatoResponse = await fetch(
+        `${BITRIX_WEBHOOK}/crm.contact.get.json?ID=${deal[CAMPO_CLIENTE]}`
+      );
+      const contatoData = await contatoResponse.json();
+      if (contatoData.result) {
+        clienteNome = ((contatoData.result.NAME || "") + " " + (contatoData.result.LAST_NAME || "")).trim();
+      }
+    }
+
     return res.status(200).json({
       ok: true,
       result: {
         processo: deal[CAMPO_PROCESSO] || "",
-        cliente: deal[CAMPO_CLIENTE] || "",
+        cliente: clienteNome || deal[CAMPO_CLIENTE] || "",
         status,
         fechado: deal.CLOSED === "Y",
         comarca: deal[CAMPO_COMARCA] || "",
