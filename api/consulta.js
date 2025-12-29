@@ -27,16 +27,16 @@ export default async function handler(req, res) {
 
     // Mapeamento completo de IDs para nomes legíveis
     const faseMap = {
-      "C5:NEW": "Ajuizado/Aguardando despacho",
+      "C5:NEW": "Ação protocolada / Aguardando decisão inicial",
       "C5:PREPARATION": "Audiência agendada",
-      "C5:UC_EW0CY9": "Acordo - Aguardando cumprir",
-      "C5:PREPAYMENT_INVOICE": "Aguardando contestação/Impug...",
-      "C5:EXECUTING": "Concluso para sentença",
+      "C5:UC_EW0CY9": "Acordo fechado",
+      "C5:PREPAYMENT_INVOICE": "Aguardando defesa da requerida",
+      "C5:EXECUTING": "Aguardando sentença (decisão do juiz)",
       "C5:FINAL_INVOICE": "Sentença proferida",
-      "C5:UC_LGL7VU": "Cumprimento de sentença",
-      "C5:UC_7ODNO2": "Aguardando pagamento/Cumpr...",
-      "C5:UC_47AKQC": "FASE RECURSAL",
-      "C5:WON": "Arquivado"
+      "C5:UC_LGL7VU": "Fase de cumprimento de sentença",
+      "C5:UC_7ODNO2": "Aguardando pagamento da condenação",
+      "C5:UC_47AKQC": "Fase recursal",
+      "C5:WON": "Processo arquivado / encerrado"
     };
 
     const url =
