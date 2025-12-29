@@ -15,7 +15,6 @@ export default async function handler(req, res) {
 
     // Campos do deal
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";
-    const CAMPO_CLIENTE  = "UF_CRM_1758883087045"; // texto, só fallback
     const CAMPO_COMARCA  = "UF_CRM_1758883106364";
     const CAMPO_ASSUNTO  = "UF_CRM_1758883116821";
     const CAMPO_FASE     = "UF_CRM_1758883132316";
@@ -39,13 +38,11 @@ export default async function handler(req, res) {
     const url = `${BITRIX_WEBHOOK}/crm.deal.list.json` +
       `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
       `&select[]=ID` +
-      `&select[]=TITLE` +
       `&select[]=STAGE_ID` +
       `&select[]=STAGE_SEMANTIC_ID` +
       `&select[]=CLOSED` +
-      `&select[]=CONTACT_IDS` + // pega os contatos vinculados
+      `&select[]=CONTACT_ID` +  // ID do contato vinculado
       `&select[]=${CAMPO_PROCESSO}` +
-      `&select[]=${CAMPO_CLIENTE}` +
       `&select[]=${CAMPO_COMARCA}` +
       `&select[]=${CAMPO_ASSUNTO}` +
       `&select[]=${CAMPO_FASE}` +
@@ -71,20 +68,14 @@ export default async function handler(req, res) {
 
     const faseLegivel = faseMap[deal.STAGE_ID] || deal.STAGE_ID;
 
-    // Pega o primeiro contato vinculado para usar como cliente
+    // Pega o contato vinculado para obter o nome do cliente
     let clienteNome = "";
-    if (deal.CONTACT_IDS && deal.CONTACT_IDS.length > 0) {
-      const contatoId = deal.CONTACT_IDS[0];
-      const contatoResponse = await fetch(`${BITRIX_WEBHOOK}/crm.contact.get.json?ID=${contatoId}`);
+    if (deal.CONTACT_ID) {
+      const contatoResponse = await fetch(`${BITRIX_WEBHOOK}/crm.contact.get.json?ID=${deal.CONTACT_ID}`);
       const contatoData = await contatoResponse.json();
       if (contatoData.result) {
         clienteNome = ((contatoData.result.NAME || "") + " " + (contatoData.result.LAST_NAME || "")).trim();
       }
-    }
-
-    // Fallback caso o contato não exista ou não tenha nome
-    if (!clienteNome) {
-      clienteNome = deal[CAMPO_CLIENTE] || "";
     }
 
     return res.status(200).json({
